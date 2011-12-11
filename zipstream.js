@@ -35,15 +35,14 @@ function convertDate(d) {
 
 
 Zipper.prototype.deflate = function(source, file, callback) {
-  var dest = this.dest;
-  var files = this.files;
+  var self = this;
 
   // local file header
   file.version = 20;
   file.bitflag = 8;
   file.method = 8;
   file.moddate = convertDate(new Date());
-  file.offset = this.current;
+  file.offset = self.current;
 
   var buf = new Buffer(30+file.name.length);
 
@@ -58,9 +57,9 @@ Zipper.prototype.deflate = function(source, file, callback) {
   buf.writeUInt16LE(file.name.length, 26);  // file name length
   buf.writeUInt16LE(0, 28);                 // extra field length
   buf.write(file.name, 30);                 // file name
-  dest.write(buf);
+  self.dest.write(buf);
 
-  this.current += buf.length;
+  self.current += buf.length;
 
   
   // data
@@ -78,7 +77,7 @@ Zipper.prototype.deflate = function(source, file, callback) {
     file.compressed = compressed;
     file.uncompressed = uncompressed;
 
-    this.current += file.compressed;
+    self.current += file.compressed;
 
     // data descriptor
     var buf = new Buffer(16);
@@ -86,11 +85,11 @@ Zipper.prototype.deflate = function(source, file, callback) {
     buf.writeInt32LE(file.crc32, 4);          // crc-32
     buf.writeUInt32LE(file.compressed, 8);    // compressed size
     buf.writeUInt32LE(file.uncompressed, 12); // uncompressed size
-    dest.write(buf);
+    self.dest.write(buf);
 
-    this.current += buf.length;
+    self.current += buf.length;
 
-    files.push(file);
+    self.files.push(file);
     callback();
   });
 
@@ -99,7 +98,7 @@ Zipper.prototype.deflate = function(source, file, callback) {
     checksum.update(chunk);
   });
 
-  source.pipe(defl).pipe(dest, { end: false });
+  source.pipe(defl).pipe(self.dest, { end: false });
 }
 
 
@@ -107,15 +106,14 @@ Zipper.prototype.deflate = function(source, file, callback) {
 
 
 Zipper.prototype.finalize = function() {
-  var files = this.files;
-  var dest = this.dest;
-  var cdoffset = this.current;
+  var self = this;
+  var cdoffset = self.current;
   var cdsize = 0;
 
-  assert.notStrictEqual(files.length, 0); //TODO throw eception instead
+  assert.notStrictEqual(self.files.length, 0); //TODO throw eception instead
   
-  for (var i=0; i<files.length; i++) {
-    var file = files[i];
+  for (var i=0; i<self.files.length; i++) {
+    var file = self.files[i];
 
     var length = 46 + file.name.length;
     cdsize += length;
@@ -140,7 +138,7 @@ Zipper.prototype.finalize = function() {
     buf.writeUInt32LE(file.offset, 42);       // relative offset
     buf.write(file.name, 46);                 // file name
 
-    dest.write(buf);
+    self.dest.write(buf);
   }
 
   
@@ -149,13 +147,13 @@ Zipper.prototype.finalize = function() {
   buf.writeUInt32LE(0x06054b50, 0);     // end of central dir signature
   buf.writeUInt16LE(0, 4);              // number of this disk
   buf.writeUInt16LE(0, 6);              // disk where central directory starts
-  buf.writeUInt16LE(files.length, 8);   // number of central directory records on this disk
-  buf.writeUInt16LE(files.length, 10);  // total number of central directory records
+  buf.writeUInt16LE(self.files.length, 8);   // number of central directory records on this disk
+  buf.writeUInt16LE(self.files.length, 10);  // total number of central directory records
   buf.writeUInt32LE(cdsize, 12);        // size of central directory in bytes
   buf.writeUInt32LE(cdoffset, 16);      // offset of start of central directory, relative to start of archive
   buf.writeUInt16LE(0, 20);             // comment length
 
-  dest.write(buf);
+  self.dest.write(buf);
 }
 
 
