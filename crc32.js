@@ -3,7 +3,7 @@
 // probably it would be better to expose zlib's crc32 functionality in zlib.js
 
 
-module.exports.createCRC32 = function() {
+exports.createCRC32 = function() {
   return new CRC32();
 }
 

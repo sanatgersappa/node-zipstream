@@ -4,9 +4,21 @@ var fs = require('fs');
 var assert = require('assert');
 var crc32 = require('./crc32');
 
+
 //TODO implement STORE functionality
 //TODO pass options to zlib (ie compression level)
-//TODO modularize
+//TODO hooks
+
+
+function Zipper(dest) {
+  this.current = 0;
+  this.files = [];
+  this.dest = dest;
+}
+
+exports.createZip = function(dest) {
+  return new Zipper(dest);
+}
 
 
 // converts datetime to DOS format
@@ -22,18 +34,16 @@ function convertDate(d) {
 }
 
 
-var files = [];
-var current = 0;
-
-
-function deflate(source, dest, file, callback) {
+Zipper.prototype.deflate = function(source, file, callback) {
+  var dest = this.dest;
+  var files = this.files;
 
   // local file header
   file.version = 20;
   file.bitflag = 8;
   file.method = 8;
-  file.moddate = convertDate(new Date()); //TODO
-  file.offset = current;
+  file.moddate = convertDate(new Date());
+  file.offset = this.current;
 
   var buf = new Buffer(30+file.name.length);
 
@@ -50,7 +60,7 @@ function deflate(source, dest, file, callback) {
   buf.write(file.name, 30);                 // file name
   dest.write(buf);
 
-  current += buf.length;
+  this.current += buf.length;
 
   
   // data
@@ -68,7 +78,7 @@ function deflate(source, dest, file, callback) {
     file.compressed = compressed;
     file.uncompressed = uncompressed;
 
-    current += file.compressed;
+    this.current += file.compressed;
 
     // data descriptor
     var buf = new Buffer(16);
@@ -78,7 +88,7 @@ function deflate(source, dest, file, callback) {
     buf.writeUInt32LE(file.uncompressed, 12); // uncompressed size
     dest.write(buf);
 
-    current += buf.length;
+    this.current += buf.length;
 
     files.push(file);
     callback();
@@ -93,9 +103,13 @@ function deflate(source, dest, file, callback) {
 }
 
 
-function wrapup(dest) {
 
-  var cdoffset = current;
+
+
+Zipper.prototype.finalize = function() {
+  var files = this.files;
+  var dest = this.dest;
+  var cdoffset = this.current;
   var cdsize = 0;
 
   assert.notStrictEqual(files.length, 0); //TODO throw eception instead
@@ -144,13 +158,9 @@ function wrapup(dest) {
   dest.write(buf);
 }
 
-var zip = fs.createWriteStream('playground/test.zip');
 
-deflate(fs.createReadStream('playground/tweety.png'), zip, { name: "tweety.png" }, function() {
-deflate(fs.createReadStream('playground/index.html'), zip, { name: "index.html" }, function() {
-  deflate(fs.createReadStream('playground/hello.txt'), zip, { name: "hello.txt" }, function() {
-    wrapup(zip);
-  });
-});
-});
+Zipper.prototype.addEntry = function(source, file, callback) {
+  this.deflate(source, file, callback);
+}
+
 
