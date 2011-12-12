@@ -7,7 +7,7 @@ var crc32 = require('./crc32');
 
 //TODO implement STORE functionality
 //TODO pass options to zlib (ie compression level)
-//TODO hooks
+//TODO provide hooks?
 
 
 function Zipper(dest) {
