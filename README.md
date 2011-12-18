@@ -4,7 +4,7 @@ Creates ZIP output streams. Depends on Node's build-in zlib library for compress
 
 ## API
 
-  createZip(outputStream, options)  
+  createZip(options)  
 
 Creates a Zipper object. The options are passed to Zlib.
 
@@ -22,8 +22,10 @@ Finalizes the ZIP by creating the Central Directory.
   var zipstream = require('./zipstream');
   var fs = require('fs');
 
-  var out = fs.createWriteStream('out.zip', { level: 1});
-  var zip = zipstream.createZip(out);
+  var out = fs.createWriteStream('out.zip');
+  var zip = zipstream.createZip({ level: 1 });
+
+  zip.on('data', function(data) { out.write(data); });
 
   zip.addEntry(fs.createReadStream('README.md'), { name: 'README.md' }, function() {
     zip.addEntry(fs.createReadStream('example.js'), { name: 'example.js' }, function() {

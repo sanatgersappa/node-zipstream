@@ -2,24 +2,26 @@
 var zlib = require('zlib');
 var fs = require('fs');
 var assert = require('assert');
+var events = require('events');
+var util = require('util');
+
 var crc32 = require('./crc32');
 
 
-//TODO implement STORE functionality
-//TODO provide hooks?
+//TODO allow raw deflated input
 
 
-function Zipper(dest, opt) {
+function Zipper(opt) {
   this.current = 0;
   this.files = [];
-  this.dest = dest;
   this.options = opt;
 }
 
-exports.createZip = function(dest, opt) {
-  return new Zipper(dest, opt);
-}
+util.inherits(Zipper, events.EventEmitter);
 
+exports.createZip = function(opt) {
+  return new Zipper(opt);
+}
 
 // converts datetime to DOS format
 function convertDate(d) {
@@ -57,7 +59,7 @@ Zipper.prototype.deflate = function(source, file, callback) {
   buf.writeUInt16LE(file.name.length, 26);  // file name length
   buf.writeUInt16LE(0, 28);                 // extra field length
   buf.write(file.name, 30);                 // file name
-  self.dest.write(buf);
+  self.emit('data', buf);
 
   self.current += buf.length;
 
@@ -70,6 +72,7 @@ Zipper.prototype.deflate = function(source, file, callback) {
   
   defl.on('data', function(chunk) { 
     compressed += chunk.length;
+    self.emit('data', chunk);
   });
 
   defl.on('end', function() {
@@ -85,20 +88,23 @@ Zipper.prototype.deflate = function(source, file, callback) {
     buf.writeInt32LE(file.crc32, 4);          // crc-32
     buf.writeUInt32LE(file.compressed, 8);    // compressed size
     buf.writeUInt32LE(file.uncompressed, 12); // uncompressed size
-    self.dest.write(buf);
 
+    self.emit('data', buf);
     self.current += buf.length;
-
     self.files.push(file);
+
     callback();
   });
 
   source.on('data', function(chunk) {
     uncompressed += chunk.length;
     checksum.update(chunk);
+    defl.write(chunk);
   });
 
-  source.pipe(defl).pipe(self.dest, { end: false });
+  source.on('end', function() { 
+    defl.end(); 
+  });
 }
 
 
@@ -110,7 +116,10 @@ Zipper.prototype.finalize = function() {
   var cdoffset = self.current;
   var cdsize = 0;
 
-  assert.notStrictEqual(self.files.length, 0); //TODO throw eception instead
+  if (self.files.length === 0) { 
+    emit('error', 'no files in zip');
+    return;
+  }
   
   for (var i=0; i<self.files.length; i++) {
     var file = self.files[i];
@@ -138,7 +147,7 @@ Zipper.prototype.finalize = function() {
     buf.writeUInt32LE(file.offset, 42);       // relative offset
     buf.write(file.name, 46);                 // file name
 
-    self.dest.write(buf);
+    self.emit('data', buf);
   }
 
   
@@ -153,7 +162,8 @@ Zipper.prototype.finalize = function() {
   buf.writeUInt32LE(cdoffset, 16);      // offset of start of central directory, relative to start of archive
   buf.writeUInt16LE(0, 20);             // comment length
 
-  self.dest.write(buf);
+  self.emit('data', buf);
+  self.emit('end');
 }
 
 
