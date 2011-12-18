@@ -6,18 +6,18 @@ var crc32 = require('./crc32');
 
 
 //TODO implement STORE functionality
-//TODO pass options to zlib (ie compression level)
 //TODO provide hooks?
 
 
-function Zipper(dest) {
+function Zipper(dest, opt) {
   this.current = 0;
   this.files = [];
   this.dest = dest;
+  this.options = opt;
 }
 
-exports.createZip = function(dest) {
-  return new Zipper(dest);
+exports.createZip = function(dest, opt) {
+  return new Zipper(dest, opt);
 }
 
 
@@ -63,7 +63,7 @@ Zipper.prototype.deflate = function(source, file, callback) {
 
   
   // data
-  var defl = zlib.createDeflateRaw();
+  var defl = zlib.createDeflateRaw(self.options);
   var checksum = crc32.createCRC32();
   var uncompressed = 0;
   var compressed = 0;
@@ -133,8 +133,8 @@ Zipper.prototype.finalize = function() {
     buf.writeUInt16LE(0, 30);                 // extra field length
     buf.writeUInt16LE(0, 32);                 // file comment length
     buf.writeUInt16LE(0, 34);                 // disk number where file starts
-    buf.writeUInt16LE(0, 36);                 // TODO internal file attributes
-    buf.writeUInt32LE(0, 38);                 // TODO external file attributes
+    buf.writeUInt16LE(0, 36);                 // internal file attributes
+    buf.writeUInt32LE(0, 38);                 // external file attributes
     buf.writeUInt32LE(file.offset, 42);       // relative offset
     buf.write(file.name, 46);                 // file name
 
