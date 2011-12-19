@@ -8,7 +8,9 @@ var util = require('util');
 var crc32 = require('./crc32');
 
 
-//TODO allow raw deflated input
+//TODO test raw input
+//TODO date
+//TODO improve errors; close down everything properly
 
 
 function Zipper(opt) {
@@ -39,6 +41,13 @@ function convertDate(d) {
 Zipper.prototype.deflate = function(source, file, callback) {
   var self = this;
 
+  if (file.deflated) {
+    if (file.crc32 === undefined || file.uncompressed === undefined) {
+      emit('error', 'when supplying deflated data, you must also supply crc32 and uncompressed');
+      return;
+    }
+  }
+
   // local file header
   file.version = 20;
   file.bitflag = 8;
@@ -53,58 +62,91 @@ Zipper.prototype.deflate = function(source, file, callback) {
   buf.writeUInt16LE(file.bitflag, 6);       // general purpose bit flag 
   buf.writeUInt16LE(file.method, 8);        // compression method  
   buf.writeUInt32LE(file.moddate, 10);      // last mod file date and time
-  buf.writeInt32LE(0, 14);                  // crc-32
+
+  buf.writeInt32LE(0, 14);                  // crc32
   buf.writeUInt32LE(0, 18);                 // compressed size
   buf.writeUInt32LE(0, 22);                 // uncompressed size
+
   buf.writeUInt16LE(file.name.length, 26);  // file name length
   buf.writeUInt16LE(0, 28);                 // extra field length
   buf.write(file.name, 30);                 // file name
-  self.emit('data', buf);
 
+  self.emit('data', buf);
   self.current += buf.length;
 
+  if (!file.deflated) {
   
-  // data
-  var defl = zlib.createDeflateRaw(self.options);
-  var checksum = crc32.createCRC32();
-  var uncompressed = 0;
-  var compressed = 0;
-  
-  defl.on('data', function(chunk) { 
-    compressed += chunk.length;
-    self.emit('data', chunk);
-  });
+    // data
+    var defl = zlib.createDeflateRaw(self.options);
+    var checksum = crc32.createCRC32();
+    var uncompressed = 0;
+    var compressed = 0;
+    
+    defl.on('data', function(chunk) { 
+      compressed += chunk.length;
+      self.emit('data', chunk);
+    });
 
-  defl.on('end', function() {
-    file.crc32 = checksum.digest();
-    file.compressed = compressed;
-    file.uncompressed = uncompressed;
+    defl.on('end', function() {
+      file.crc32 = checksum.digest();
+      file.compressed = compressed;
+      file.uncompressed = uncompressed;
 
-    self.current += file.compressed;
+      self.current += compressed;
 
-    // data descriptor
-    var buf = new Buffer(16);
-    buf.writeUInt32LE(0x08074b50, 0);         // data descriptor record signature
-    buf.writeInt32LE(file.crc32, 4);          // crc-32
-    buf.writeUInt32LE(file.compressed, 8);    // compressed size
-    buf.writeUInt32LE(file.uncompressed, 12); // uncompressed size
+      // data descriptor
+      var buf = new Buffer(16);
+      buf.writeUInt32LE(0x08074b50, 0);         // data descriptor record signature
+      buf.writeInt32LE(file.crc32, 4);          // crc-32
+      buf.writeUInt32LE(file.compressed, 8);    // compressed size
+      buf.writeUInt32LE(file.uncompressed, 12); // uncompressed size
 
-    self.emit('data', buf);
-    self.current += buf.length;
-    self.files.push(file);
+      self.emit('data', buf);
+      self.current += buf.length;
+      self.files.push(file);
 
-    callback();
-  });
+      callback();
+    });
 
-  source.on('data', function(chunk) {
-    uncompressed += chunk.length;
-    checksum.update(chunk);
-    defl.write(chunk);
-  });
+    source.on('data', function(data) {
+      uncompressed += data.length;
+      checksum.update(data);
+      defl.write(data);
+    });
 
-  source.on('end', function() { 
-    defl.end(); 
-  });
+    source.on('end', function() { 
+      defl.end(); 
+    });
+  } else {
+    var compressed = 0;
+
+    // data is deflated
+    source.on('data', function(data) {
+      self.emit('data', data);
+      compressed += data.length;
+    });
+
+    //TODO DRY cleanup. 
+    source.on('end', function() { 
+      file.compressed = compressed;
+
+      self.current += compressed;
+
+      // data descriptor
+      var buf = new Buffer(16);
+      buf.writeUInt32LE(0x08074b50, 0);         // data descriptor record signature
+      buf.writeInt32LE(file.crc32, 4);          // crc-32
+      buf.writeUInt32LE(file.compressed, 8);    // compressed size
+      buf.writeUInt32LE(file.uncompressed, 12); // uncompressed size
+
+      self.emit('data', buf);
+      self.current += buf.length;
+      self.files.push(file);
+
+      callback();
+    });
+  }
+
 }
 
 

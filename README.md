@@ -10,7 +10,7 @@ Creates a Zipper object. The options are passed to Zlib.
 
   Zipper.addEntry(inputStream, features, callback)
   
-Adds an entry to the ZIP stream. Currently the only feature is 
+Adds an entry to the ZIP stream. Features must contain: name, deflated: true, crc32, uncompressed
 
   Zipper.finalize()
 
