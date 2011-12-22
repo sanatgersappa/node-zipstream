@@ -13,16 +13,16 @@ var crc32 = require('./crc32');
 //TODO improve errors; close down everything properly
 
 
-function Zipper(opt) {
+function ZipStream(opt) {
   this.current = 0;
   this.files = [];
   this.options = opt;
 }
 
-util.inherits(Zipper, events.EventEmitter);
+util.inherits(ZipStream, events.EventEmitter);
 
 exports.createZip = function(opt) {
-  return new Zipper(opt);
+  return new ZipStream(opt);
 }
 
 // converts datetime to DOS format
@@ -38,7 +38,7 @@ function convertDate(d) {
 }
 
 
-Zipper.prototype.deflate = function(source, file, callback) {
+ZipStream.prototype.deflate = function(source, file, callback) {
   var self = this;
 
   if (file.deflated) {
@@ -153,7 +153,7 @@ Zipper.prototype.deflate = function(source, file, callback) {
 
 
 
-Zipper.prototype.finalize = function() {
+ZipStream.prototype.finalize = function() {
   var self = this;
   var cdoffset = self.current;
   var cdsize = 0;
@@ -195,21 +195,21 @@ Zipper.prototype.finalize = function() {
   
   // end of central directory record
   var buf = new Buffer(22);
-  buf.writeUInt32LE(0x06054b50, 0);     // end of central dir signature
-  buf.writeUInt16LE(0, 4);              // number of this disk
-  buf.writeUInt16LE(0, 6);              // disk where central directory starts
-  buf.writeUInt16LE(self.files.length, 8);   // number of central directory records on this disk
-  buf.writeUInt16LE(self.files.length, 10);  // total number of central directory records
-  buf.writeUInt32LE(cdsize, 12);        // size of central directory in bytes
-  buf.writeUInt32LE(cdoffset, 16);      // offset of start of central directory, relative to start of archive
-  buf.writeUInt16LE(0, 20);             // comment length
+  buf.writeUInt32LE(0x06054b50, 0);           // end of central dir signature
+  buf.writeUInt16LE(0, 4);                    // number of this disk
+  buf.writeUInt16LE(0, 6);                    // disk where central directory starts
+  buf.writeUInt16LE(self.files.length, 8);    // number of central directory records on this disk
+  buf.writeUInt16LE(self.files.length, 10);   // total number of central directory records
+  buf.writeUInt32LE(cdsize, 12);              // size of central directory in bytes
+  buf.writeUInt32LE(cdoffset, 16);            // offset of start of central directory, relative to start of archive
+  buf.writeUInt16LE(0, 20);                   // comment length
 
   self.emit('data', buf);
   self.emit('end');
 }
 
 
-Zipper.prototype.addEntry = function(source, file, callback) {
+ZipStream.prototype.addEntry = function(source, file, callback) {
   this.deflate(source, file, callback);
 }
 
