@@ -7,6 +7,10 @@ been tested in production.
 
 Written by Antoine van Wel ([website](http://wellawaretech.com)).
 
+# Install
+
+        npm install zipstream
+
 
 ## API
 
