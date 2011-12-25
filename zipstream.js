@@ -1,3 +1,4 @@
+// written by Antoine van Wel (http://wellawaretech.com)
 
 var zlib = require('zlib');
 var fs = require('fs');

@@ -1,6 +1,6 @@
 
-// crc32 functionality
-// probably it would be better to expose zlib's crc32 functionality in zlib.js
+// crc32 functionality for zip
+// maybe it would be better to expose zlib's crc32 functionality in zlib.js
 
 
 exports.createCRC32 = function() {
