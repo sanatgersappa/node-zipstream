@@ -3,7 +3,7 @@
 var zlib = require('zlib');
 var fs = require('fs');
 var assert = require('assert');
-var events = require('events');
+var stream = require('stream');
 var util = require('util');
 
 var crc32 = require('./crc32');
@@ -20,7 +20,7 @@ function ZipStream(opt) {
   this.options = opt;
 }
 
-util.inherits(ZipStream, events.EventEmitter);
+util.inherits(ZipStream, stream.Stream);
 
 exports.createZip = function(opt) {
   return new ZipStream(opt);
@@ -35,7 +35,6 @@ function convertDate(d) {
   }
   return ((year-1980) << 25) | ((d.getMonth()+1) << 21) | (d.getDate() << 16) | 
     (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
-
 }
 
 
@@ -211,7 +210,9 @@ ZipStream.prototype.finalize = function() {
 
 
 ZipStream.prototype.addEntry = function(source, file, callback) {
-  this.deflate(source, file, callback);
+  var self = this;
+  
+  process.nextTick(function() { self.deflate(source, file, callback); });
 }
 
 
