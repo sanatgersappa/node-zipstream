@@ -35,7 +35,7 @@ Finalizes the ZIP.
          var out = fs.createWriteStream('out.zip');
          var zip = zipstream.createZip({ level: 1 });
         
-         zip.on('data', function(data) { out.write(data); });
+         zip.pipe(out);
         
          zip.addEntry(fs.createReadStream('README.md'), { name: 'README.md' }, function() {
            zip.addEntry(fs.createReadStream('example.js'), { name: 'example.js' }, function() {
