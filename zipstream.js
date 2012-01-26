@@ -209,7 +209,7 @@ ZipStream.prototype.finalize = function() {
 }
 
 
-ZipStream.prototype.addEntry = function(source, file, callback) {
+ZipStream.prototype.addFile = function(source, file, callback) {
   var self = this;
   
   process.nextTick(function() { self.deflate(source, file, callback); });
