@@ -18,7 +18,7 @@ function ZipStream(opt) {
   self.eof = false;
 
   self.queue = [];
-  self.current = 0;
+  self.fileptr = 0;
   self.files = [];
   self.options = opt;
 }
@@ -71,6 +71,10 @@ ZipStream.prototype._read = function() {
   if (self.eof && self.queue.length === 0) {
     self.emit('end');
     self.readable = false;
+
+		if (self.callback) { 
+			self.callback(self.fileptr); 
+		}
   }
 
   process.nextTick(function() { self._read(); }); //TODO improve
@@ -78,7 +82,7 @@ ZipStream.prototype._read = function() {
 
 
 
-ZipStream.prototype.finalize = function() {
+ZipStream.prototype.finalize = function(callback) {
   var self = this;
 
   if (self.files.length === 0) { 
@@ -86,6 +90,7 @@ ZipStream.prototype.finalize = function() {
     return;
   }
 
+	self.callback = callback;
   self._pushCentralDirectory();
   self.eof = true;
 }
@@ -100,9 +105,7 @@ ZipStream.prototype.addFile = function(source, file, callback) {
   }
 
   self.busy = true;
-  self.source = source;
   self.file = file;
-  self.callback = callback;
   
   self._pushLocalFileHeader(file);
 
@@ -121,7 +124,7 @@ ZipStream.prototype.addFile = function(source, file, callback) {
     file.compressed = compressed;
     file.uncompressed = uncompressed;
 
-    self.current += compressed;
+    self.fileptr += compressed;
     self._pushDataDescriptor(file);
 
     self.files.push(file);
@@ -153,7 +156,7 @@ ZipStream.prototype._pushLocalFileHeader = function(file) {
   file.bitflag = 8;
   file.method = 8;
   file.moddate = convertDate(new Date());
-  file.offset = self.current;
+  file.offset = self.fileptr;
 
   var buf = new Buffer(30+file.name.length);
 
@@ -172,7 +175,7 @@ ZipStream.prototype._pushLocalFileHeader = function(file) {
   buf.write(file.name, 30);                 // file name
 
   self.queue.push(buf);
-  self.current += buf.length;
+  self.fileptr += buf.length;
 }
 
 ZipStream.prototype._pushDataDescriptor = function(file) {
@@ -185,12 +188,12 @@ ZipStream.prototype._pushDataDescriptor = function(file) {
   buf.writeUInt32LE(file.uncompressed, 12); // uncompressed size
 
   self.queue.push(buf);
-  self.current += buf.length;
+  self.fileptr += buf.length;
 }
 
 ZipStream.prototype._pushCentralDirectory = function() {
   var self = this;
-  var cdoffset = self.current;
+  var cdoffset = self.fileptr;
 
   var buf = new Buffer(1024);
   var ptr = 0;
@@ -236,4 +239,5 @@ ZipStream.prototype._pushCentralDirectory = function() {
   ptr = ptr + 22;
 
   self.queue.push(buf.slice(0, ptr));
+	self.fileptr += ptr;
 }

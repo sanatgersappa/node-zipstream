@@ -7,7 +7,7 @@ var zip = zipstream.createZip({ level: 1 });
 
 zip.addFile(fs.createReadStream('README.md'), { name: 'README.md' }, function() {
   zip.addFile(fs.createReadStream('example.js'), { name: 'example.js'  }, function() {
-    zip.finalize();
+    zip.finalize(function(written) { console.log(written + ' total bytes written'); });
   });
 });
 

@@ -22,9 +22,9 @@ Creates a ZipStream object. Options are passed to Zlib.
   
 Adds a file to the ZIP stream. At his moment, options must contain "name".
 
-        ZipStream.finalize()
+        ZipStream.finalize(callback(bytes written))
 
-Finalizes the ZIP. 
+Finalizes the ZIP. When everything is done, callback is called with the total number of bytes in the ZIP archive.
 
 
 ## Example
@@ -39,7 +39,7 @@ Finalizes the ZIP.
        
         zip.addFile(fs.createReadStream('README.md'), { name: 'README.md' }, function() {
           zip.addFile(fs.createReadStream('example.js'), { name: 'example.js' }, function() {
-            zip.finalize();
+            zip.finalize(function(written) { console.log(written + ' total bytes written'); });
           });
         });
 
