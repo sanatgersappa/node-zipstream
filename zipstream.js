@@ -86,7 +86,7 @@ ZipStream.prototype.finalize = function() {
     return;
   }
 
-  self._emitCentralDirectory();
+  self._pushCentralDirectory();
   self.eof = true;
 }
 
@@ -104,7 +104,7 @@ ZipStream.prototype.addFile = function(source, file, callback) {
   self.file = file;
   self.callback = callback;
   
-  self._emitLocalFileHeader(file);
+  self._pushLocalFileHeader(file);
 
   var deflate = zlib.createDeflateRaw(self.options);
   var checksum = crc32.createCRC32();
@@ -122,7 +122,7 @@ ZipStream.prototype.addFile = function(source, file, callback) {
     file.uncompressed = uncompressed;
 
     self.current += compressed;
-    self._emitDataDescriptor(file);
+    self._pushDataDescriptor(file);
 
     self.files.push(file);
     self.busy = false;
@@ -146,7 +146,7 @@ ZipStream.prototype.addFile = function(source, file, callback) {
 
 
 // local file header
-ZipStream.prototype._emitLocalFileHeader = function(file) {
+ZipStream.prototype._pushLocalFileHeader = function(file) {
   var self = this;
 
   file.version = 20;
@@ -175,7 +175,7 @@ ZipStream.prototype._emitLocalFileHeader = function(file) {
   self.current += buf.length;
 }
 
-ZipStream.prototype._emitDataDescriptor = function(file) {
+ZipStream.prototype._pushDataDescriptor = function(file) {
   var self = this;
 
   var buf = new Buffer(16);
@@ -188,7 +188,7 @@ ZipStream.prototype._emitDataDescriptor = function(file) {
   self.current += buf.length;
 }
 
-ZipStream.prototype._emitCentralDirectory = function() {
+ZipStream.prototype._pushCentralDirectory = function() {
   var self = this;
   var cdoffset = self.current;
 
