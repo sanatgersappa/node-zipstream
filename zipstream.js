@@ -145,6 +145,52 @@ ZipStream.prototype.addFile = function(source, file, callback) {
   process.nextTick(function() { self._read(); });
 }
 
+//Write a string directly to a file within the zipstream
+ZipStream.prototype.addString = function(source, file, callback) {
+  var self = this;
+
+  if (self.busy) {
+    emit('error', 'previous file not finished');
+    return;
+  }
+
+  self.busy = true;
+  self.file = file;
+  
+  self._pushLocalFileHeader(file);
+
+  var deflate = zlib.createDeflateRaw(self.options);
+  var checksum = crc32.createCRC32();
+  var uncompressed = 0;
+  var compressed = 0;
+  
+  deflate.on('data', function(chunk) { 
+    compressed += chunk.length;
+    self.queue.push(chunk);
+  });
+
+  deflate.on('end', function() {
+    file.crc32 = checksum.digest();
+    file.compressed = compressed;
+    file.uncompressed = uncompressed;
+
+    self.fileptr += compressed;
+    self._pushDataDescriptor(file);
+
+    self.files.push(file);
+    self.busy = false;
+    callback();
+  });
+
+  uncompressed += source.length;
+  checksum.update(source);
+  deflate.write(source); //TODO check for false & wait for drain
+  deflate.end(); 
+
+  process.nextTick(function() { self._read(); });
+}
+
+
 //TODO remove listeners on end
 
 
